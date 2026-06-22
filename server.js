@@ -66,6 +66,11 @@ app.post('/register', async (req, res) => {
   if (!['parent', 'daughter'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
+  
+  // If a parent is creating a child account, displayName is required
+  if (role === 'daughter' && req.session?.role === 'parent' && !displayName) {
+    return res.status(400).json({ error: 'Display name is required when creating a child account' });
+  }
 
   try {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -91,6 +96,7 @@ app.post('/register', async (req, res) => {
     
     res.json({ success: true, role: user.role });
   } catch (err) {
+    console.error('Registration error:', err);
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Email already registered' });
     }
