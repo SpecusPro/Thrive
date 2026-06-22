@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thrive • Today</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-[#fdf8f3] min-h-screen pb-20">
+  <!-- Header -->
+  <div class="bg-white border-b border-amber-100 sticky top-0 z-10">
+    <div class="max-w-xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div>
+        <span class="font-bold text-3xl text-amber-800">Thrive</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-right">
+          <div class="text-sm text-amber-600">Good morning!</div>
+          <div class="text-xs text-amber-500">You’ve got this ✨</div>
+        </div>
+        <button onclick="logout()" class="text-amber-400 hover:text-amber-600">
+          <i class="fa-solid fa-sign-out-alt text-xl"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-xl mx-auto px-6 pt-8">
+    <!-- Progress -->
+    <div class="mb-8">
+      <div class="flex justify-between items-end mb-2">
+        <div>
+          <div class="text-amber-800 font-semibold">Today’s Progress</div>
+          <div class="text-4xl font-bold text-amber-900"><span id="progressCount">0</span>/<span id="totalCount">12</span></div>
+        </div>
+        <div class="text-6xl">🌱</div>
+      </div>
+      <div class="h-4 bg-amber-100 rounded-full overflow-hidden">
+        <div id="progressBar" class="h-4 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full transition-all" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="space-y-3" id="taskList">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <script>
+    let tasks = [];
+
+    async function loadTasks() {
+      // Placeholder until backend is built
+      tasks = [
+        { id: 1, title: "Brush teeth", icon: "fa-tooth", completed: false },
+        { id: 2, title: "Wash face", icon: "fa-face-smile", completed: false },
+        { id: 3, title: "Drink water", icon: "fa-glass-water", completed: true },
+        { id: 4, title: "Eat breakfast", icon: "fa-utensils", completed: false },
+      ];
+      renderTasks();
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('taskList');
+      container.innerHTML = '';
+
+      let completed = 0;
+
+      tasks.forEach(task => {
+        if (task.completed) completed++;
+
+        const div = document.createElement('div');
+        div.className = `flex items-center gap-4 p-5 rounded-3xl transition cursor-pointer ${task.completed ? 'bg-emerald-100' : 'bg-white border border-amber-100'}`;
+        div.innerHTML = `
+          <div class="w-12 h-12 flex items-center justify-center text-3xl ${task.completed ? 'text-emerald-500' : 'text-amber-400'}">
+            <i class="fa-solid ${task.icon}"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-semibold text-lg text-amber-900">${task.title}</div>
+          </div>
+          <div class="text-3xl ${task.completed ? 'text-emerald-500' : 'text-amber-300'}">
+            <i class="fa-solid ${task.completed ? 'fa-check-circle' : 'fa-circle'}"></i>
+          </div>
+        `;
+        div.onclick = () => toggleTask(task.id);
+        container.appendChild(div);
+      });
+
+      document.getElementById('progressCount').textContent = completed;
+      document.getElementById('totalCount').textContent = tasks.length;
+      document.getElementById('progressBar').style.width = `${(completed / tasks.length) * 100}%`;
+    }
+
+    function toggleTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        renderTasks();
+        // TODO: save to server
+      }
+    }
+
+    async function logout() {
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+
+    loadTasks();
+  </script>
+</body>
+</html>
