@@ -77,7 +77,7 @@ app.post('/register', async (req, res) => {
     
     const user = result.rows[0];
     
-    // If parent registers a daughter, create the link
+    // If parent registers a child, create the link
     if (role === 'daughter' && req.session.userId && req.session.role === 'parent' && displayName) {
       await pool.query(
         'INSERT INTO children (parent_id, child_id, display_name) VALUES ($1, $2, $3)',
