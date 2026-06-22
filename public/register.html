@@ -41,6 +41,11 @@
             </label>
           </div>
         </div>
+        
+        <div id="displayNameField" class="hidden">
+          <label class="block text-sm font-medium text-gray-600 mb-1.5">Display Name (for parent)</label>
+          <input type="text" id="displayName" class="w-full px-4 py-3 border border-gray-200 rounded-2xl" placeholder="Emma">
+        </div>
 
         <button type="submit" 
                 class="w-full py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-2xl transition">
@@ -57,21 +62,38 @@
   </div>
 
   <script>
+    // Show/hide display name field based on role
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const field = document.getElementById('displayNameField');
+        if (radio.value === 'daughter') {
+          field.classList.remove('hidden');
+        } else {
+          field.classList.add('hidden');
+        }
+      });
+    });
+
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const errorEl = document.getElementById('error');
       errorEl.classList.add('hidden');
 
       const role = document.querySelector('input[name="role"]:checked').value;
+      const payload = {
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        role: role
+      };
+      
+      if (role === 'daughter') {
+        payload.displayName = document.getElementById('displayName').value;
+      }
 
       const res = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('email').value,
-          password: document.getElementById('password').value,
-          role: role
-        })
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
