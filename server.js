@@ -88,6 +88,8 @@ app.post('/register', async (req, res) => {
         'INSERT INTO children (parent_id, child_id, display_name) VALUES ($1, $2, $3)',
         [req.session.userId, user.id, displayName]
       );
+      // Do NOT switch the session to the child - keep parent logged in
+      return res.json({ success: true, role: 'parent' });
     }
     
     req.session.userId = user.id;
@@ -141,7 +143,7 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
   if (req.query.child_id) {
     childId = parseInt(req.query.child_id);
     
-    // Parent must own the child
+    // Parent must own the child (check children table)
     if (req.session.role === 'parent') {
       const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
       if (owns.rows.length === 0) {
