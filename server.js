@@ -165,6 +165,7 @@ app.get('/api/children', requireParent, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
+    console.error('Failed to load children:', err);
     res.status(500).json({ error: 'Failed to load children' });
   }
 });
