@@ -157,6 +157,7 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
+    console.error('Failed to load tasks:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to load tasks' });
   }
 });
