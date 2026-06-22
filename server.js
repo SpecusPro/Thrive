@@ -52,6 +52,52 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+app.get('/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+app.post('/register', async (req, res) => {
+  const { email, password, role, displayName } = req.body;
+  
+  if (!email || !password || !role) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  if (!['parent', 'daughter'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    
+    const result = await pool.query(
+      'INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id, email, role',
+      [email, hashedPassword, role]
+    );
+    
+    const user = result.rows[0];
+    
+    // If parent registers a daughter, create the link
+    if (role === 'daughter' && req.session.userId && req.session.role === 'parent' && displayName) {
+      await pool.query(
+        'INSERT INTO children (parent_id, child_id, display_name) VALUES ($1, $2, $3)',
+        [req.session.userId, user.id, displayName]
+      );
+    }
+    
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    req.session.email = user.email;
+    
+    res.json({ success: true, role: user.role });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -80,6 +126,88 @@ app.post('/logout', (req, res) => {
 app.get('/app', requireAuth, (req, res) => {
   if (req.session.role !== 'daughter') return res.redirect('/parent');
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+// API: Get tasks for current daughter
+app.get('/api/tasks', requireAuth, async (req, res) => {
+  if (req.session.role !== 'daughter') return res.status(403).json({ error: 'Forbidden' });
+  
+  try {
+    const result = await pool.query(
+      `SELECT t.*, 
+         EXISTS(SELECT 1 FROM task_completions WHERE task_id = t.id AND completed_date = CURRENT_DATE) as completed_today
+       FROM tasks 
+       WHERE child_id = $1 AND active = true 
+       ORDER BY sort_order, created_at`,
+      [req.session.userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load tasks' });
+  }
+});
+
+// API: Get children for parent
+app.get('/api/children', requireParent, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.id, c.display_name, u.email 
+       FROM children c 
+       JOIN users u ON c.child_id = u.id 
+       WHERE c.parent_id = $1`,
+      [req.session.userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load children' });
+  }
+});
+
+// API: Create task (parent only)
+app.post('/api/tasks', requireParent, async (req, res) => {
+  const { child_id, title, icon, frequency, interval_days } = req.body;
+  
+  try {
+    const result = await pool.query(
+      `INSERT INTO tasks (child_id, title, icon, frequency, interval_days) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [child_id, title, icon, frequency || 'daily', interval_days || null]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+});
+
+// API: Toggle task completion
+app.post('/api/tasks/:id/toggle', requireAuth, async (req, res) => {
+  if (req.session.role !== 'daughter') return res.status(403).json({ error: 'Forbidden' });
+  
+  const taskId = parseInt(req.params.id);
+  
+  try {
+    // Verify task belongs to this user
+    const taskCheck = await pool.query('SELECT id FROM tasks WHERE id = $1 AND child_id = $2', [taskId, req.session.userId]);
+    if (taskCheck.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
+    
+    const completed = await pool.query(
+      `INSERT INTO task_completions (task_id, completed_date) 
+       VALUES ($1, CURRENT_DATE) 
+       ON CONFLICT (task_id, completed_date) DO NOTHING
+       RETURNING id`,
+      [taskId]
+    );
+    
+    if (completed.rows.length === 0) {
+      // Already completed, so un-complete it
+      await pool.query('DELETE FROM task_completions WHERE task_id = $1 AND completed_date = CURRENT_DATE', [taskId]);
+      res.json({ completed: false });
+    } else {
+      res.json({ completed: true });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle task' });
+  }
 });
 
 // Parent dashboard

@@ -17,22 +17,184 @@
       <button onclick="logout()" class="text-sm px-5 py-2 rounded-2xl border border-slate-300 hover:bg-white">Log out</button>
     </div>
 
+    <div class="bg-white rounded-3xl p-8 border border-slate-100 mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-semibold">Your Children</h2>
+        <button onclick="showAddChildModal()" 
+                class="px-4 py-2 bg-slate-800 hover:bg-black text-white text-sm rounded-2xl flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i> <span>Add Daughter</span>
+        </button>
+      </div>
+      <div id="childrenList" class="space-y-3">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
     <div class="bg-white rounded-3xl p-8 border border-slate-100">
       <h2 class="text-2xl font-semibold mb-6">Manage Tasks</h2>
       
-      <div class="text-center py-12 text-slate-400">
-        <i class="fa-solid fa-list-check text-5xl mb-4"></i>
-        <p class="text-lg">Task management coming soon</p>
-        <p class="text-sm mt-1">You’ll be able to add, edit, and organize tasks here.</p>
+      <div id="taskManagement">
+        <div class="text-center py-12 text-slate-400">
+          <i class="fa-solid fa-list-check text-5xl mb-4"></i>
+          <p class="text-lg">Select a child above to manage tasks</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Child Modal -->
+    <div id="addChildModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4">
+        <h3 class="text-xl font-semibold mb-4">Add Daughter Profile</h3>
+        <form id="addChildForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Display Name</label>
+            <input type="text" id="displayName" class="w-full px-4 py-3 border border-gray-200 rounded-2xl" placeholder="Emma" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Email</label>
+            <input type="email" id="childEmail" class="w-full px-4 py-3 border border-gray-200 rounded-2xl" placeholder="emma@example.com" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Temporary Password</label>
+            <input type="password" id="childPassword" class="w-full px-4 py-3 border border-gray-200 rounded-2xl" required>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" onclick="hideAddChildModal()" 
+                    class="flex-1 py-3 border border-gray-300 rounded-2xl">Cancel</button>
+            <button type="submit" 
+                    class="flex-1 py-3 bg-slate-800 hover:bg-black text-white rounded-2xl">Create Account</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 
   <script>
+    let currentChildId = null;
+
+    async function loadChildren() {
+      const container = document.getElementById('childrenList');
+      container.innerHTML = '<div class="text-center py-4 text-slate-400">Loading...</div>';
+      
+      try {
+        const res = await fetch('/api/children');
+        const children = await res.json();
+        
+        if (children.length === 0) {
+          container.innerHTML = `<div class="text-center py-8 text-slate-400">
+            <i class="fa-solid fa-user-plus text-4xl mb-3"></i>
+            <p>No children added yet</p>
+          </div>`;
+          return;
+        }
+        
+        container.innerHTML = '';
+        children.forEach(child => {
+          const div = document.createElement('div');
+          div.className = `flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition ${currentChildId === child.id ? 'border-slate-800 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`;
+          div.innerHTML = `
+            <div class="w-10 h-10 bg-slate-200 rounded-2xl flex items-center justify-center">
+              <i class="fa-solid fa-user text-slate-500"></i>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">${child.display_name}</div>
+              <div class="text-xs text-slate-500">${child.email}</div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-slate-400"></i>
+          `;
+          div.onclick = () => selectChild(child.id, child.display_name, div);
+          container.appendChild(div);
+        });
+      } catch (err) {
+        container.innerHTML = '<div class="text-red-500 text-sm">Failed to load children</div>';
+      }
+    }
+
+    function selectChild(childId, displayName, element) {
+      currentChildId = childId;
+      // Update selection styles
+      document.querySelectorAll('#childrenList > div').forEach(el => el.classList.remove('border-slate-800', 'bg-slate-50'));
+      element.classList.add('border-slate-800', 'bg-slate-50');
+      
+      loadTaskManagement(childId, displayName);
+    }
+
+    async function loadTaskManagement(childId, displayName) {
+      const container = document.getElementById('taskManagement');
+      container.innerHTML = `
+        <div class="mb-4">
+          <div class="font-semibold text-lg">Tasks for ${displayName}</div>
+          <button onclick="showAddTaskModal(${childId})" 
+                  class="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-2xl flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> <span>Add Task</span>
+          </button>
+        </div>
+        <div id="taskListParent" class="space-y-2">Loading tasks...</div>
+      `;
+    }
+
+    function showAddChildModal() {
+      document.getElementById('addChildModal').classList.remove('hidden');
+    }
+
+    function hideAddChildModal() {
+      document.getElementById('addChildModal').classList.add('hidden');
+      document.getElementById('addChildForm').reset();
+    }
+
+    document.getElementById('addChildForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('childEmail').value,
+          password: document.getElementById('childPassword').value,
+          role: 'daughter',
+          displayName: document.getElementById('displayName').value
+        })
+      });
+
+      if (res.ok) {
+        hideAddChildModal();
+        loadChildren();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to create account');
+      }
+    });
+
+    function showAddTaskModal(childId) {
+      // Simple prompt for now - can be improved later
+      const title = prompt('Task title:');
+      if (!title) return;
+      
+      const icon = prompt('Icon (Font Awesome class, e.g. fa-tooth):', 'fa-check');
+      
+      fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: childId,
+          title: title,
+          icon: icon,
+          frequency: 'daily'
+        })
+      }).then(() => {
+        // Refresh task list
+        const displayName = document.querySelector('#taskManagement .font-semibold').textContent.replace('Tasks for ', '');
+        loadTaskManagement(childId, displayName);
+      });
+    }
+
     async function logout() {
       await fetch('/logout', { method: 'POST' });
       window.location.href = '/login';
     }
+
+    // Initial load
+    loadChildren();
   </script>
 </body>
 </html>

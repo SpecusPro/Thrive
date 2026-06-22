@@ -32,7 +32,7 @@
       <div class="flex justify-between items-end mb-2">
         <div>
           <div class="text-amber-800 font-semibold">Today’s Progress</div>
-          <div class="text-4xl font-bold text-amber-900"><span id="progressCount">0</span>/<span id="totalCount">12</span></div>
+          <div class="text-4xl font-bold text-amber-900"><span id="progressCount">0</span>/<span id="totalCount">0</span></div>
         </div>
         <div class="text-6xl">🌱</div>
       </div>
@@ -45,20 +45,31 @@
     <div class="space-y-3" id="taskList">
       <!-- Populated by JS -->
     </div>
+    
+    <div id="emptyState" class="hidden text-center py-12">
+      <i class="fa-solid fa-seedling text-6xl text-amber-300 mb-4"></i>
+      <p class="text-amber-700 text-lg">No tasks yet</p>
+      <p class="text-amber-500 text-sm mt-1">Your parent will add some soon!</p>
+    </div>
   </div>
 
   <script>
     let tasks = [];
 
     async function loadTasks() {
-      // Placeholder until backend is built
-      tasks = [
-        { id: 1, title: "Brush teeth", icon: "fa-tooth", completed: false },
-        { id: 2, title: "Wash face", icon: "fa-face-smile", completed: false },
-        { id: 3, title: "Drink water", icon: "fa-glass-water", completed: true },
-        { id: 4, title: "Eat breakfast", icon: "fa-utensils", completed: false },
-      ];
-      renderTasks();
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        tasks = data.map(t => ({
+          id: t.id,
+          title: t.title,
+          icon: t.icon || 'fa-check',
+          completed: t.completed_today === true || t.completed_today === 'true'
+        }));
+        renderTasks();
+      } catch (err) {
+        console.error('Failed to load tasks', err);
+      }
     }
 
     function renderTasks() {
@@ -92,12 +103,24 @@
       document.getElementById('progressBar').style.width = `${(completed / tasks.length) * 100}%`;
     }
 
-    function toggleTask(id) {
+    async function toggleTask(id) {
       const task = tasks.find(t => t.id === id);
-      if (task) {
-        task.completed = !task.completed;
+      if (!task) return;
+      
+      const wasCompleted = task.completed;
+      task.completed = !task.completed;
+      renderTasks();
+      
+      try {
+        const res = await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' });
+        if (!res.ok) {
+          // Revert on failure
+          task.completed = wasCompleted;
+          renderTasks();
+        }
+      } catch (err) {
+        task.completed = wasCompleted;
         renderTasks();
-        // TODO: save to server
       }
     }
 
