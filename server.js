@@ -134,9 +134,17 @@ app.get('/app', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
-// API: Get tasks for current daughter
+// API: Get tasks for current daughter (or parent viewing a child)
 app.get('/api/tasks', requireAuth, async (req, res) => {
-  if (req.session.role !== 'daughter') return res.status(403).json({ error: 'Forbidden' });
+  const childId = req.query.child_id ? parseInt(req.query.child_id) : req.session.userId;
+  
+  // If parent is requesting a specific child, verify they own that child
+  if (req.session.role === 'parent' && req.query.child_id) {
+    const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
+    if (owns.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
+  } else if (req.session.role !== 'daughter') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
   
   try {
     const result = await pool.query(
@@ -145,7 +153,7 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
        FROM tasks 
        WHERE child_id = $1 AND active = true 
        ORDER BY sort_order, created_at`,
-      [req.session.userId]
+      [childId]
     );
     res.json(result.rows);
   } catch (err) {
