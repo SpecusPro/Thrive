@@ -24,9 +24,13 @@
           <label class="block text-sm font-medium text-gray-600 mb-1.5">Email</label>
           <input type="email" id="email" class="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:border-violet-400" required>
         </div>
-        <div>
+                <div>
           <label class="block text-sm font-medium text-gray-600 mb-1.5">Password</label>
           <input type="password" id="password" class="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:border-violet-400" required minlength="6">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1.5">Confirm Password</label>
+          <input type="password" id="confirmPassword" class="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:border-violet-400" required minlength="6">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-600 mb-1.5">I am a...</label>
@@ -37,7 +41,7 @@
             </label>
             <label class="flex-1 cursor-pointer">
               <input type="radio" name="role" value="daughter" class="peer hidden">
-              <div class="peer-checked:bg-violet-600 peer-checked:text-white border border-gray-200 peer-checked:border-violet-600 rounded-2xl py-3 text-center text-sm font-medium transition">Daughter</div>
+              <div class="peer-checked:bg-violet-600 peer-checked:text-white border border-gray-200 peer-checked:border-violet-600 rounded-2xl py-3 text-center text-sm font-medium transition">Child</div>
             </label>
           </div>
         </div>
@@ -88,6 +92,15 @@
       
       if (role === 'daughter') {
         payload.displayName = document.getElementById('displayName').value;
+      }
+      
+      // Password confirmation check
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      if (password !== confirmPassword) {
+        errorEl.textContent = 'Passwords do not match';
+        errorEl.classList.remove('hidden');
+        return;
       }
 
       const res = await fetch('/register', {
