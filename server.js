@@ -203,12 +203,38 @@ app.delete('/api/children/:id', requireParent, async (req, res) => {
     const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
     if (owns.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
     
-    // Delete the child user (cascade will remove children link and tasks)
+    // Delete in correct order to satisfy FK constraints
+    await pool.query('DELETE FROM task_completions USING tasks WHERE task_completions.task_id = tasks.id AND tasks.child_id = $1', [childId]);
+    await pool.query('DELETE FROM tasks WHERE child_id = $1', [childId]);
+    await pool.query('DELETE FROM children WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM users WHERE id = $1', [childId]);
+    
     res.json({ success: true });
   } catch (err) {
     console.error('Failed to delete child:', err);
     res.status(500).json({ error: 'Failed to delete child' });
+  }
+});
+
+// API: Delete task (parent only)
+app.delete('/api/tasks/:id', requireParent, async (req, res) => {
+  const taskId = parseInt(req.params.id);
+  
+  try {
+    // Verify the task belongs to one of the parent's children
+    const owns = await pool.query(
+      `SELECT 1 FROM tasks t 
+       JOIN children c ON t.child_id = c.child_id 
+       WHERE t.id = $1 AND c.parent_id = $2`,
+      [taskId, req.session.userId]
+    );
+    if (owns.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
+    
+    await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to delete task:', err);
+    res.status(500).json({ error: 'Failed to delete task' });
   }
 });
 
