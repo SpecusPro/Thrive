@@ -105,7 +105,7 @@
               <i class="fa-solid fa-chevron-right text-slate-400"></i>
             </div>
           `;
-          div.onclick = () => selectChild(child.id, child.display_name, div);
+          div.onclick = () => selectChild(child.child_id, child.display_name, div);
           container.appendChild(div);
         });
       } catch (err) {

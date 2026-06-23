@@ -181,7 +181,7 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
 app.get('/api/children', requireParent, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT c.id, c.display_name, u.email 
+      `SELECT c.child_id as id, c.display_name, u.email 
        FROM children c 
        JOIN users u ON c.child_id = u.id 
        WHERE c.parent_id = $1`,
@@ -197,13 +197,10 @@ app.get('/api/children', requireParent, async (req, res) => {
 // API: Delete a child (parent only)
 app.delete('/api/children/:id', requireParent, async (req, res) => {
   const childId = parseInt(req.params.id);
-  console.log('DELETE /api/children/' + childId + ' called by parent ' + req.session.userId);
   
   try {
-    // Extremely permissive for now - just check the child exists
-    const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1', [childId]);
+    const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1 AND role = $2', [childId, 'daughter']);
     if (childExists.rows.length === 0) {
-      console.log('Child not found');
       return res.status(404).json({ error: 'Child not found' });
     }
     
@@ -213,7 +210,6 @@ app.delete('/api/children/:id', requireParent, async (req, res) => {
     await pool.query('DELETE FROM children WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM users WHERE id = $1', [childId]);
     
-    console.log('Child deleted successfully');
     res.json({ success: true });
   } catch (err) {
     console.error('Failed to delete child:', err.message);
