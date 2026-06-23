@@ -197,13 +197,18 @@ app.get('/api/children', requireParent, async (req, res) => {
 // API: Delete a child (parent only)
 app.delete('/api/children/:id', requireParent, async (req, res) => {
   const childId = parseInt(req.params.id);
+  console.log('Delete child request:', { parentId: req.session.userId, childId });
   
   try {
     // Verify ownership (also allow if the child link is missing but user is parent - for cleanup)
     const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
+    console.log('Ownership check result rows:', owns.rows.length);
+    
     if (owns.rows.length === 0) {
       // Check if the child even exists
       const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1 AND role = $2', [childId, 'daughter']);
+      console.log('Child exists check rows:', childExists.rows.length);
+      
       if (childExists.rows.length === 0) {
         return res.status(404).json({ error: 'Child not found' });
       }
@@ -217,9 +222,10 @@ app.delete('/api/children/:id', requireParent, async (req, res) => {
     await pool.query('DELETE FROM children WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM users WHERE id = $1', [childId]);
     
+    console.log('Child deleted successfully:', childId);
     res.json({ success: true });
   } catch (err) {
-    console.error('Failed to delete child:', err);
+    console.error('Failed to delete child:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to delete child' });
   }
 });
