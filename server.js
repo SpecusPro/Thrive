@@ -206,7 +206,7 @@ app.delete('/api/children/:id', requireParent, async (req, res) => {
     }
     
     // Delete in correct order to satisfy FK constraints
-    await pool.query('DELETE FROM task_completions USING tasks WHERE task_completions.task_id = tasks.id AND tasks.child_id = $1', [childId]);
+    await pool.query('DELETE FROM task_completions WHERE task_id IN (SELECT id FROM tasks WHERE child_id = $1)', [childId]);
     await pool.query('DELETE FROM tasks WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM children WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM users WHERE id = $1', [childId]);
