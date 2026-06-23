@@ -100,7 +100,10 @@
               <div class="font-semibold">${child.display_name}</div>
               <div class="text-xs text-slate-500">${child.email}</div>
             </div>
-            <i class="fa-solid fa-chevron-right text-slate-400"></i>
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-trash text-red-400 hover:text-red-600" onclick="event.stopImmediatePropagation(); deleteChild(${child.id}, '${child.display_name}', this)"></i>
+              <i class="fa-solid fa-chevron-right text-slate-400"></i>
+            </div>
           `;
           div.onclick = () => selectChild(child.id, child.display_name, div);
           container.appendChild(div);
@@ -165,6 +168,27 @@
       if (!confirm('Delete this task?')) return;
       await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
       loadTaskManagement(childId, displayName);
+    }
+    
+    async function deleteChild(childId, displayName, element) {
+      if (!confirm(`Delete ${displayName}? This cannot be undone.`)) return;
+      
+      const res = await fetch(`/api/children/${childId}`, { method: 'DELETE' });
+      if (res.ok) {
+        loadChildren();
+        // Clear task area if this child was selected
+        if (currentChildId === childId) {
+          document.getElementById('taskManagement').innerHTML = `
+            <div class="text-center py-12 text-slate-400">
+              <i class="fa-solid fa-list-check text-5xl mb-4"></i>
+              <p class="text-lg">Select a child above to manage tasks</p>
+            </div>
+          `;
+          currentChildId = null;
+        }
+      } else {
+        alert('Failed to delete child');
+      }
     }
 
     function showAddChildModal() {

@@ -194,6 +194,24 @@ app.get('/api/children', requireParent, async (req, res) => {
   }
 });
 
+// API: Delete a child (parent only)
+app.delete('/api/children/:id', requireParent, async (req, res) => {
+  const childId = parseInt(req.params.id);
+  
+  try {
+    // Verify ownership
+    const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
+    if (owns.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
+    
+    // Delete the child user (cascade will remove children link and tasks)
+    await pool.query('DELETE FROM users WHERE id = $1', [childId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to delete child:', err);
+    res.status(500).json({ error: 'Failed to delete child' });
+  }
+});
+
 // API: Create task (parent only)
 app.post('/api/tasks', requireParent, async (req, res) => {
   const { child_id, title, icon, frequency, interval_days } = req.body;
