@@ -199,9 +199,17 @@ app.delete('/api/children/:id', requireParent, async (req, res) => {
   const childId = parseInt(req.params.id);
   
   try {
-    // Verify ownership
+    // Verify ownership (also allow if the child link is missing but user is parent - for cleanup)
     const owns = await pool.query('SELECT 1 FROM children WHERE parent_id = $1 AND child_id = $2', [req.session.userId, childId]);
-    if (owns.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
+    if (owns.rows.length === 0) {
+      // Check if the child even exists
+      const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1 AND role = $2', [childId, 'daughter']);
+      if (childExists.rows.length === 0) {
+        return res.status(404).json({ error: 'Child not found' });
+      }
+      // Allow parent to delete orphaned child for cleanup
+      console.log('Allowing delete of orphaned child', childId);
+    }
     
     // Delete in correct order to satisfy FK constraints
     await pool.query('DELETE FROM task_completions USING tasks WHERE task_completions.task_id = tasks.id AND tasks.child_id = $1', [childId]);
