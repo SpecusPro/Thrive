@@ -197,23 +197,26 @@ app.get('/api/children', requireParent, async (req, res) => {
 // API: Delete a child (parent only)
 app.delete('/api/children/:id', requireParent, async (req, res) => {
   const childId = parseInt(req.params.id);
+  console.log('DELETE /api/children/' + childId + ' called by parent ' + req.session.userId);
   
   try {
-    // Any parent can delete any child in this app (simple permission model)
-    const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1 AND role = $2', [childId, 'daughter']);
+    // Extremely permissive for now - just check the child exists
+    const childExists = await pool.query('SELECT 1 FROM users WHERE id = $1', [childId]);
     if (childExists.rows.length === 0) {
+      console.log('Child not found');
       return res.status(404).json({ error: 'Child not found' });
     }
     
-    // Delete in correct order to satisfy FK constraints
+    // Delete in correct order
     await pool.query('DELETE FROM task_completions WHERE task_id IN (SELECT id FROM tasks WHERE child_id = $1)', [childId]);
     await pool.query('DELETE FROM tasks WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM children WHERE child_id = $1', [childId]);
     await pool.query('DELETE FROM users WHERE id = $1', [childId]);
     
+    console.log('Child deleted successfully');
     res.json({ success: true });
   } catch (err) {
-    console.error('Failed to delete child:', err.message, err.stack);
+    console.error('Failed to delete child:', err.message);
     res.status(500).json({ error: 'Failed to delete child' });
   }
 });
